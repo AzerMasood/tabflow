@@ -26,7 +26,7 @@
       color-scheme: dark;
     }
     body {
-      background-color: #121212;
+      background-color: #000000;
       color: #f3f4f6;
       font-family: 'Inter', system-ui, sans-serif;
     }
@@ -35,7 +35,7 @@
       height: 7px;
     }
     ::-webkit-scrollbar-track {
-      background: #141418;
+      background: #000000;
     }
     ::-webkit-scrollbar-thumb {
       background: #2f2f39;
@@ -46,7 +46,7 @@
     }
   </style>
 </head>
-<body class="bg-[#121212] text-gray-100 antialiased selection:bg-amber-500/30 selection:text-amber-200">
+<body class="bg-black text-gray-100 antialiased selection:bg-amber-500/30 selection:text-amber-200">
   <div id="root"></div>
 
   <!-- React 18 + Babel Standalone for zero-build browser execution -->
@@ -281,7 +281,7 @@
     // Warm tones for Root (R), Major 3rd (3), and 5th (5); cool tones for other intervals
     function getIntervalToneClass(intervalLabel, isActive = true) {
       if (!isActive) {
-        return 'bg-[#181820] text-gray-600 border border-gray-800/70 hover:text-gray-300';
+        return 'bg-black text-gray-600 border border-gray-800/70 hover:text-gray-300';
       }
       // Warm trio: red / orange / lemon-yellow (clearly separated hues)
       if (intervalLabel === 'R') {
@@ -642,7 +642,7 @@
       const hasLoop = pointA != null && pointB != null && pointB > pointA;
       const pct = (v) => (dur > 0 ? `${Math.max(0, Math.min(100, (v / dur) * 100))}%` : '0%');
       const btn = 'px-2 py-1 rounded border font-mono font-semibold transition-colors';
-      const btnIdle = 'bg-[#1B1B23] text-gray-300 border-gray-700 hover:text-amber-300';
+      const btnIdle = 'bg-black text-gray-300 border-gray-700 hover:text-amber-300';
 
       return (
         <>
@@ -654,7 +654,7 @@
           <div
             className={`${
               hidden ? 'hidden' : 'flex'
-            } flex-1 min-w-[420px] flex-col gap-1.5 rounded-lg bg-[#121218] border border-[#2B2B35] px-3 py-2`}
+            } flex-1 min-w-[420px] flex-col gap-1.5 rounded-lg bg-black border border-[#2B2B35] px-3 py-2`}
           >
             {error ? (
               <span className="text-xs text-rose-300">{error}</span>
@@ -780,7 +780,7 @@
                     <select
                       value={rate}
                       onChange={(e) => setRate(Number(e.target.value))}
-                      className="bg-[#121216] border border-gray-700 rounded px-1.5 py-1 text-gray-200 font-mono"
+                      className="bg-black border border-gray-700 rounded px-1.5 py-1 text-gray-200 font-mono"
                     >
                       {SPEED_OPTIONS.map((r) => (
                         <option key={r} value={r}>
@@ -1275,35 +1275,11 @@
       };
 
       return (
-        <div className="flex h-screen w-full bg-[#121212] text-gray-100 font-sans overflow-hidden select-none">
-          {/* SIDEBAR */}
-          <aside className="w-14 md:w-52 shrink-0 bg-[#15151A] border-r border-[#2A2A32] flex flex-col py-4 gap-1">
-            <div className="px-5 pb-2 hidden md:block text-[10px] uppercase tracking-widest text-gray-500 font-semibold">
-              Workspace
-            </div>
-            <button
-              type="button"
-              className="mx-2 flex items-center justify-center md:justify-start gap-3 px-3 py-2 rounded-lg bg-amber-500/15 text-amber-300 border border-amber-500/30 text-sm font-semibold"
-              title="Song Board"
-            >
-              <span className="text-base leading-none">♫</span>
-              <span className="hidden md:inline">Song Board</span>
-            </button>
-            <button
-              type="button"
-              onClick={openPracticeRoom}
-              className="mx-2 flex items-center justify-center md:justify-start gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-[#22222A] hover:text-amber-300 border border-transparent text-sm font-medium transition-colors"
-              title="Practice Room"
-            >
-              <span className="text-base leading-none">✎</span>
-              <span className="hidden md:inline">Practice Room</span>
-            </button>
-          </aside>
-
+        <div className="flex h-screen w-full bg-black text-gray-100 font-sans overflow-hidden select-none">
           {/* LEFT / MAIN WORKSPACE AREA */}
           <div className="flex-1 flex flex-col h-full overflow-hidden border-r border-[#2A2A32]">
             {/* HEADER / NAVIGATION */}
-            <header className="h-16 border-b border-[#2A2A32] bg-[#18181C] px-4 sm:px-6 flex items-center justify-between gap-3 shadow-md shrink-0">
+            <header className="h-16 border-b border-[#2A2A32] bg-black px-4 sm:px-6 flex items-center justify-between gap-3 shadow-md shrink-0">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-9 h-9 rounded-lg bg-gradient-to-tr from-amber-500 to-amber-600 flex items-center justify-center shadow-lg shadow-amber-500/20 shrink-0">
                   <span className="text-gray-950 font-extrabold text-sm font-mono">TF</span>
@@ -1327,6 +1303,14 @@
 
                 <button
                   type="button"
+                  onClick={openPracticeRoom}
+                  className="flex items-center gap-1.5 bg-black hover:bg-[#161616] text-amber-300 border border-amber-500/30 font-semibold px-3.5 py-2 rounded-lg text-xs sm:text-sm transition-all cursor-pointer"
+                >
+                  ✎ Practice Room
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => setShowAddModal(true)}
                   className="flex items-center gap-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-gray-950 font-semibold px-3.5 py-2 rounded-lg text-xs sm:text-sm shadow-md shadow-amber-500/10 transition-all cursor-pointer"
                 >
@@ -1335,7 +1319,7 @@
 
                 <div className="h-6 w-[1px] bg-gray-800 hidden sm:block" />
 
-                <div className="hidden sm:flex items-center gap-2 bg-[#222228] px-3 py-1.5 rounded-full border border-gray-800 text-xs text-gray-300">
+                <div className="hidden sm:flex items-center gap-2 bg-black px-3 py-1.5 rounded-full border border-gray-800 text-xs text-gray-300">
                   <span className="w-2 h-2 rounded-full bg-emerald-400" />
                   <span className="font-mono text-[11px] text-gray-400">Local Studio</span>
                 </div>
@@ -1343,14 +1327,14 @@
             </header>
 
             {/* KANBAN BOARD CONTENT AREA */}
-            <main className="flex-1 overflow-x-auto overflow-y-auto p-4 sm:p-6 bg-gradient-to-b from-[#141417] to-[#0F0F12]">
+            <main className="flex-1 overflow-x-auto overflow-y-auto p-4 sm:p-6 bg-black">
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 min-w-[320px] md:min-w-[760px] xl:min-w-[1000px]">
                 {KANBAN_COLUMNS.map((col) => {
                   const colSongs = songs.filter((s) => s.column === col.id);
                   return (
                     <div
                       key={col.id}
-                      className="flex flex-col bg-[#1A1A20] rounded-xl border border-[#2D2D36] p-4 shadow-xl overflow-hidden"
+                      className="flex flex-col bg-black rounded-xl border border-[#2D2D36] p-4 shadow-xl overflow-hidden"
                     >
                       {/* Column Header */}
                       <div
@@ -1359,7 +1343,7 @@
                         <h2 className="font-semibold text-sm uppercase tracking-wider text-gray-200">
                           {col.title}
                         </h2>
-                        <span className="bg-[#121215] text-amber-400 font-mono text-xs px-2 py-0.5 rounded-full border border-gray-800 font-bold">
+                        <span className="bg-black text-amber-400 font-mono text-xs px-2 py-0.5 rounded-full border border-gray-800 font-bold">
                           {colSongs.length}
                         </span>
                       </div>
@@ -1379,7 +1363,7 @@
                           <div
                             key={song.id}
                             onClick={() => openExpandedSong(song)}
-                            className="bg-[#22222A] hover:border-amber-500/40 border border-[#2E2E38] rounded-xl p-3.5 transition-all duration-200 shadow-md group relative cursor-pointer"
+                            className="bg-black hover:border-amber-500/40 border border-[#2E2E38] rounded-xl p-3.5 transition-all duration-200 shadow-md group relative cursor-pointer"
                           >
                             {/* Card Header & Delete */}
                             <div className="flex justify-between items-start gap-2 mb-2">
@@ -1408,7 +1392,7 @@
                             {media && (
                               <div
                                 onClick={(e) => e.stopPropagation()}
-                                className="mb-3 rounded-lg overflow-hidden border border-gray-800 bg-[#15151B]"
+                                className="mb-3 rounded-lg overflow-hidden border border-gray-800 bg-black"
                               >
                                 {isPlayingInline && media.kind === 'youtube' ? (
                                   <div>
@@ -1421,7 +1405,7 @@
                                         allowFullScreen
                                       />
                                     </div>
-                                    <div className="flex items-center justify-between px-2.5 py-1.5 bg-[#191920] text-[11px] text-amber-300">
+                                    <div className="flex items-center justify-between px-2.5 py-1.5 bg-black text-[11px] text-amber-300">
                                       <span>Playing from link</span>
                                       <button
                                         type="button"
@@ -1478,7 +1462,7 @@
 
                             {/* Attached Modular Tool Presets */}
                             {song.attachedPreset && (
-                              <div className="my-2 p-2 bg-[#18181F] rounded-md border border-gray-800/80 flex items-center justify-between text-xs text-gray-400 font-mono">
+                              <div className="my-2 p-2 bg-black rounded-md border border-gray-800/80 flex items-center justify-between text-xs text-gray-400 font-mono">
                                 <div className="flex items-center gap-2">
                                   <span>{song.attachedPreset.bpm} BPM</span>
                                   <span>•</span>
@@ -1523,7 +1507,7 @@
                                 onClick={() =>
                                   setActiveTabDrawer({ songId: song.id, platform: 'songsterr' })
                                 }
-                                className="flex items-center justify-center gap-1.5 bg-[#1B2A1E] hover:bg-[#233827] text-emerald-400 border border-emerald-600/30 text-xs py-1.5 rounded-lg transition-colors font-medium"
+                                className="flex items-center justify-center gap-1.5 bg-black hover:bg-[#161616] text-emerald-400 border border-emerald-600/30 text-xs py-1.5 rounded-lg transition-colors font-medium"
                               >
                                 Songsterr
                               </button>
@@ -1535,7 +1519,7 @@
                                     platform: 'ultimate-guitar',
                                   })
                                 }
-                                className="flex items-center justify-center gap-1.5 bg-[#2B2317] hover:bg-[#382D1E] text-amber-400 border border-amber-600/30 text-xs py-1.5 rounded-lg transition-colors font-medium"
+                                className="flex items-center justify-center gap-1.5 bg-black hover:bg-[#161616] text-amber-400 border border-amber-600/30 text-xs py-1.5 rounded-lg transition-colors font-medium"
                               >
                                 Ultimate Guitar
                               </button>
@@ -1597,9 +1581,9 @@
 
       {/* EXPANDED SONG FOCUS VIEW (TOP WIDE LOW-PROFILE PLAYER -> HIDDEN DETAILS -> TAB -> SCALE & CHORD -> DRUMS) */}
       {expandedSong && (
-        <div className="fixed inset-0 bg-[#101014] z-40 flex flex-col overflow-hidden">
+        <div className="fixed inset-0 bg-black z-40 flex flex-col overflow-hidden">
           {/* Top Low-Profile Wide Music Player Bar */}
-          <div className="w-full bg-[#18181F] border-b border-[#2B2B35] px-4 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-3 shrink-0">
+          <div className="w-full bg-black border-b border-[#2B2B35] px-4 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-3 shrink-0">
             <div className="flex items-center gap-3 min-w-0 lg:max-w-[260px]">
               {expandedMedia?.thumbnailUrl && (
                 <img
@@ -1627,7 +1611,7 @@
                     placeholder="Optional: paste a YouTube or audio link to play along"
                     value={expandedSong.sourceUrl || ''}
                     onChange={(e) => updateSongFields(PRACTICE_ID, { sourceUrl: e.target.value })}
-                    className="mt-0.5 w-64 max-w-full bg-[#121216] border border-gray-800 rounded px-2 py-0.5 text-[11px] text-gray-200 select-text focus:outline-none focus:border-amber-500"
+                    className="mt-0.5 w-64 max-w-full bg-black border border-gray-800 rounded px-2 py-0.5 text-[11px] text-gray-200 select-text focus:outline-none focus:border-amber-500"
                   />
                 ) : (
                   <p className="text-[11px] text-gray-400 truncate">
@@ -1668,7 +1652,7 @@
               <button
                 type="button"
                 onClick={() => setShowExpandedDetails((prev) => !prev)}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#22222B] text-gray-300 border border-gray-700 hover:text-amber-300 transition-colors"
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-black text-gray-300 border border-gray-700 hover:text-amber-300 transition-colors"
               >
                 {showExpandedDetails ? 'Hide Song Details' : 'Song Details'}
               </button>
@@ -1678,7 +1662,7 @@
                   setIsPlayingMetronome(false);
                   setExpandedSongId(null);
                 }}
-                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700"
+                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#0d0d0d] hover:bg-[#1a1a1a] text-gray-200 border border-gray-700"
               >
                 ✕ Close
               </button>
@@ -1687,7 +1671,7 @@
 
           {/* Hidden-by-default Song Details Drawer Strip */}
           {showExpandedDetails && (
-            <div className="w-full bg-[#1A1A22] border-b border-[#2B2B35] px-4 sm:px-6 py-2.5 flex flex-wrap items-center gap-4 text-xs text-gray-300 shrink-0">
+            <div className="w-full bg-black border-b border-[#2B2B35] px-4 sm:px-6 py-2.5 flex flex-wrap items-center gap-4 text-xs text-gray-300 shrink-0">
               <span>
                 <strong className="text-amber-400">Stage:</strong>{' '}
                 {KANBAN_COLUMNS.find((c) => c.id === expandedSong.column)?.title || expandedSong.column}
@@ -1713,18 +1697,83 @@
 
           {/* Stacked Focus Workspace: 1. Tab Portion -> 2. Scale & Chord Generator -> 3. Drum Machine */}
           <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
-            {/* 1. TAB PORTION */}
-            <section className="bg-[#18181E] border border-[#2C2C36] rounded-xl p-4 shadow-lg min-w-0">
+            {/* 3. DRUM MACHINE PORTION */}
+            <section className="bg-black border border-[#2C2C36] rounded-xl p-4 shadow-lg">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-amber-400">
+                    1. Drum Machine
+                  </h3>
+                  <div className="flex items-center gap-1.5">
+                    {[0, 1, 2, 3].map((beat) => (
+                      <span
+                        key={beat}
+                        className={`w-2.5 h-2.5 rounded-full ${
+                          isPlayingMetronome && currentBeat === beat
+                            ? 'bg-amber-400 scale-110'
+                            : 'bg-gray-700'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3 text-xs">
+                  <span className="font-mono text-amber-300 font-bold">{bpm} BPM</span>
+                  <input
+                    type="range"
+                    min="40"
+                    max="220"
+                    value={bpm}
+                    onChange={(e) => setBpm(Number(e.target.value))}
+                    className="w-28 accent-amber-500 cursor-pointer"
+                  />
+                  <span className="text-gray-400">Vol</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="150"
+                    value={drumVolume}
+                    onChange={(e) => setDrumVolume(Number(e.target.value))}
+                    className="w-24 accent-amber-500 cursor-pointer"
+                  />
+                  <span className="font-mono text-amber-300 font-bold w-10">{drumVolume}%</span>
+                  <select
+                    value={drumPattern}
+                    onChange={(e) => setDrumPattern(e.target.value)}
+                    className="bg-black border border-gray-800 rounded-lg px-2.5 py-1 text-gray-200"
+                  >
+                    <option value="rock">Acoustic Rock Groove</option>
+                    <option value="straight">Straight Beat</option>
+                    <option value="click">Metronome Click</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setIsPlayingMetronome((prev) => !prev)}
+                    className={`px-3.5 py-1.5 rounded-lg font-bold text-xs ${
+                      isPlayingMetronome
+                        ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40'
+                        : 'bg-amber-500 text-gray-950 hover:bg-amber-400'
+                    }`}
+                  >
+                    {isPlayingMetronome ? 'Stop Drums' : 'Start Drums'}
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            {/* 2. TAB PORTION */}
+            <section className="bg-black border border-[#2C2C36] rounded-xl p-4 shadow-lg min-w-0">
               <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-amber-400">
-                  1. Tablature &amp; Snapshots
+                  2. Tablature &amp; Snapshots
                 </h3>
                 <div className={`flex items-center gap-2 ${expandedSong.id === PRACTICE_ID ? 'hidden' : ''}`}>
                   <a
                     href={getSongsterrUrl(expandedSong.artist, expandedSong.title)}
                     target="_blank"
                     rel="noreferrer"
-                    className="px-3 py-1 rounded-lg text-xs font-semibold bg-[#1B2A1E] text-emerald-400 border border-emerald-600/30 hover:bg-[#233827]"
+                    className="px-3 py-1 rounded-lg text-xs font-semibold bg-black text-emerald-400 border border-emerald-600/30 hover:bg-[#161616]"
                   >
                     Songsterr ↗
                   </a>
@@ -1732,7 +1781,7 @@
                     href={getUltimateGuitarUrl(expandedSong.artist, expandedSong.title)}
                     target="_blank"
                     rel="noreferrer"
-                    className="px-3 py-1 rounded-lg text-xs font-semibold bg-[#2B2317] text-amber-400 border border-amber-600/30 hover:bg-[#382D1E]"
+                    className="px-3 py-1 rounded-lg text-xs font-semibold bg-black text-amber-400 border border-amber-600/30 hover:bg-[#161616]"
                   >
                     Ultimate Guitar ↗
                   </a>
@@ -1746,12 +1795,12 @@
                   value={snapshotUrlInput}
                   onChange={(e) => setSnapshotUrlInput(e.target.value)}
                   onPaste={(e) => handleTabPaste(e, expandedSong.id)}
-                  className="flex-1 min-w-0 bg-[#121216] border border-gray-800 rounded-lg px-3 py-1.5 text-xs text-gray-200 focus:outline-none focus:border-amber-500"
+                  className="flex-1 min-w-0 bg-black border border-gray-800 rounded-lg px-3 py-1.5 text-xs text-gray-200 focus:outline-none focus:border-amber-500"
                 />
                 <button
                   type="button"
                   onClick={() => pasteFromClipboardButton(expandedSong.id)}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#22222B] text-amber-300 border border-amber-500/30 hover:bg-[#2a2a35] shrink-0"
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-black text-amber-300 border border-amber-500/30 hover:bg-[#161616] shrink-0"
                 >
                   Paste
                 </button>
@@ -1770,7 +1819,7 @@
               )}
 
               {expandedSong.id === PRACTICE_ID && (
-                <div className="mb-4 bg-[#131318] border border-gray-800 rounded-lg p-3">
+                <div className="mb-4 bg-black border border-gray-800 rounded-lg p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                     <span className="text-xs font-mono text-gray-300">
                       Blank Tab Template — type your own tab
@@ -1782,7 +1831,7 @@
                         className={`px-2.5 py-1 rounded text-[11px] font-mono font-semibold border ${
                           tabOverwrite
                             ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                            : 'bg-[#1B1B23] text-gray-400 border-gray-700'
+                            : 'bg-black text-gray-400 border-gray-700'
                         }`}
                         title="When on, typing replaces the dash under the cursor so the columns stay lined up"
                       >
@@ -1791,7 +1840,7 @@
                       <button
                         type="button"
                         onClick={() => addBlankStaff(expandedSong.id, expandedSong.tabText)}
-                        className="px-2.5 py-1 rounded text-[11px] font-semibold bg-[#22222B] text-gray-200 border border-gray-700 hover:text-amber-300"
+                        className="px-2.5 py-1 rounded text-[11px] font-semibold bg-black text-gray-200 border border-gray-700 hover:text-amber-300"
                       >
                         + Add Staff
                       </button>
@@ -1802,7 +1851,7 @@
                             updateSongFields(expandedSong.id, { tabText: makeBlankStaff() });
                           }
                         }}
-                        className="px-2.5 py-1 rounded text-[11px] font-semibold bg-[#22222B] text-gray-400 border border-gray-700 hover:text-rose-300"
+                        className="px-2.5 py-1 rounded text-[11px] font-semibold bg-black text-gray-400 border border-gray-700 hover:text-rose-300"
                       >
                         Reset
                       </button>
@@ -1817,7 +1866,7 @@
                     spellCheck={false}
                     wrap="off"
                     rows={Math.max(8, (expandedSong.tabText ?? makeBlankStaff()).split('\n').length + 1)}
-                    className="w-full bg-[#0E0E12] border border-gray-800 rounded-lg p-3 font-mono text-[13px] leading-5 text-amber-100 whitespace-pre overflow-x-auto resize-y select-text focus:outline-none focus:border-amber-500"
+                    className="w-full bg-black border border-gray-800 rounded-lg p-3 font-mono text-[13px] leading-5 text-amber-100 whitespace-pre overflow-x-auto resize-y select-text focus:outline-none focus:border-amber-500"
                   />
                 </div>
               )}
@@ -1857,10 +1906,10 @@
             </section>
 
             {/* 2. SCALE & BLANK INTERACTIVE CHORD GENERATOR */}
-            <section className="bg-[#18181E] border border-[#2C2C36] rounded-xl p-4 shadow-lg space-y-4">
+            <section className="bg-black border border-[#2C2C36] rounded-xl p-4 shadow-lg space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-amber-400">
-                  2. Scale &amp; Chord Generator
+                  3. Scale &amp; Chord Generator
                 </h3>
                 <div className="flex flex-wrap items-center gap-2 text-xs">
                   <select
@@ -1869,7 +1918,7 @@
                       setScaleRoot(e.target.value);
                       setCustomChordSemitones([]);
                     }}
-                    className="bg-[#121216] border border-gray-800 rounded-lg px-2.5 py-1 text-gray-200"
+                    className="bg-black border border-gray-800 rounded-lg px-2.5 py-1 text-gray-200"
                   >
                     {CHROMATIC_SCALE.map((n) => (
                       <option key={n} value={n}>
@@ -1880,7 +1929,7 @@
                   <select
                     value={selectedScaleName}
                     onChange={(e) => setSelectedScaleName(e.target.value)}
-                    className="bg-[#121216] border border-gray-800 rounded-lg px-2.5 py-1 text-gray-200"
+                    className="bg-black border border-gray-800 rounded-lg px-2.5 py-1 text-gray-200"
                   >
                     {Object.keys(SCALES_MAP).map((sc) => (
                       <option key={sc} value={sc}>
@@ -1892,7 +1941,7 @@
               </div>
 
               {/* Populated Scale Fretboard from Song Info */}
-              <div className="bg-[#131318] border border-gray-800/90 rounded-lg p-3 space-y-2.5">
+              <div className="bg-black border border-gray-800/90 rounded-lg p-3 space-y-2.5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-xs font-mono text-gray-300">
                     Populated Scale Fretboard (0–24 Frets):{' '}
@@ -1974,7 +2023,7 @@
               </div>
 
               {/* Empty Chord Generator Fretboard Below Scale Fretboard */}
-              <div className="bg-[#131318] border border-gray-800/90 rounded-lg p-3 space-y-3">
+              <div className="bg-black border border-gray-800/90 rounded-lg p-3 space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="text-xs font-mono text-gray-300">
                     Chord Generator Fretboard (0–24 Frets, Empty by Default):
@@ -2004,7 +2053,7 @@
                         className={`px-2 py-1 rounded text-[11px] font-mono transition-colors ${
                           isSelected
                             ? getIntervalToneClass(label, true)
-                            : 'bg-[#1B1B23] text-gray-400 border border-gray-800 hover:text-gray-200'
+                            : 'bg-black text-gray-400 border border-gray-800 hover:text-gray-200'
                         }`}
                       >
                         {label} ({noteName})
@@ -2071,7 +2120,7 @@
 
                 {/* Interval Names, Interval Types & Possible Alternative Chord Names Outside Key */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
-                  <div className="bg-[#181820] border border-gray-800 rounded-lg p-2.5">
+                  <div className="bg-black border border-gray-800 rounded-lg p-2.5">
                     <div className="text-[11px] font-semibold text-amber-400 mb-1.5">
                       Selected Intervals (Name &amp; Type)
                     </div>
@@ -2097,7 +2146,7 @@
                     )}
                   </div>
 
-                  <div className="bg-[#181820] border border-gray-800 rounded-lg p-2.5">
+                  <div className="bg-black border border-gray-800 rounded-lg p-2.5">
                     <div className="text-[11px] font-semibold text-amber-400 mb-1.5">
                       Possible Alternative Chord Names (Outside Key)
                     </div>
@@ -2110,7 +2159,7 @@
                         {alternativeChordNames.map((altName) => (
                           <span
                             key={altName}
-                            className="px-2 py-1 rounded bg-[#22222C] border border-amber-500/30 text-[11px] font-mono text-amber-200"
+                            className="px-2 py-1 rounded bg-black border border-amber-500/30 text-[11px] font-mono text-amber-200"
                           >
                             {altName}
                           </span>
@@ -2121,79 +2170,14 @@
                 </div>
               </div>
             </section>
-
-            {/* 3. DRUM MACHINE PORTION */}
-            <section className="bg-[#18181E] border border-[#2C2C36] rounded-xl p-4 shadow-lg">
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-amber-400">
-                    3. Drum Machine
-                  </h3>
-                  <div className="flex items-center gap-1.5">
-                    {[0, 1, 2, 3].map((beat) => (
-                      <span
-                        key={beat}
-                        className={`w-2.5 h-2.5 rounded-full ${
-                          isPlayingMetronome && currentBeat === beat
-                            ? 'bg-amber-400 scale-110'
-                            : 'bg-gray-700'
-                        }`}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-3 text-xs">
-                  <span className="font-mono text-amber-300 font-bold">{bpm} BPM</span>
-                  <input
-                    type="range"
-                    min="40"
-                    max="220"
-                    value={bpm}
-                    onChange={(e) => setBpm(Number(e.target.value))}
-                    className="w-28 accent-amber-500 cursor-pointer"
-                  />
-                  <span className="text-gray-400">Vol</span>
-                  <input
-                    type="range"
-                    min="0"
-                    max="150"
-                    value={drumVolume}
-                    onChange={(e) => setDrumVolume(Number(e.target.value))}
-                    className="w-24 accent-amber-500 cursor-pointer"
-                  />
-                  <span className="font-mono text-amber-300 font-bold w-10">{drumVolume}%</span>
-                  <select
-                    value={drumPattern}
-                    onChange={(e) => setDrumPattern(e.target.value)}
-                    className="bg-[#121216] border border-gray-800 rounded-lg px-2.5 py-1 text-gray-200"
-                  >
-                    <option value="rock">Acoustic Rock Groove</option>
-                    <option value="straight">Straight Beat</option>
-                    <option value="click">Metronome Click</option>
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => setIsPlayingMetronome((prev) => !prev)}
-                    className={`px-3.5 py-1.5 rounded-lg font-bold text-xs ${
-                      isPlayingMetronome
-                        ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40'
-                        : 'bg-amber-500 text-gray-950 hover:bg-amber-400'
-                    }`}
-                  >
-                    {isPlayingMetronome ? 'Stop Drums' : 'Start Drums'}
-                  </button>
-                </div>
-              </div>
-            </section>
           </div>
         </div>
       )}
 
       {/* DUAL TAB SEARCH & SNAPSHOT DRAWER */}
           {drawerSong && (
-            <div className="w-full md:w-1/2 max-w-2xl h-full bg-[#16161B] border-l border-amber-500/20 flex flex-col shadow-2xl z-30 transition-all duration-300 shrink-0">
-              <div className="h-16 border-b border-[#2A2A32] bg-[#1E1E24] px-4 sm:px-6 flex items-center justify-between gap-2">
+            <div className="w-full md:w-1/2 max-w-2xl h-full bg-black border-l border-amber-500/20 flex flex-col shadow-2xl z-30 transition-all duration-300 shrink-0">
+              <div className="h-16 border-b border-[#2A2A32] bg-black px-4 sm:px-6 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <span className="text-xs font-semibold uppercase tracking-wider text-amber-400 bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20 shrink-0">
                     {activeTabDrawer.platform}
@@ -2211,7 +2195,7 @@
                     }
                     target="_blank"
                     rel="noreferrer"
-                    className="flex items-center gap-1 text-xs bg-gray-800 hover:bg-gray-700 text-gray-200 px-3 py-1.5 rounded border border-gray-700"
+                    className="flex items-center gap-1 text-xs bg-[#0d0d0d] hover:bg-[#1a1a1a] text-gray-200 px-3 py-1.5 rounded border border-gray-700"
                   >
                     Open Direct ↗
                   </a>
@@ -2226,7 +2210,7 @@
               </div>
 
               <div className="flex-1 flex flex-col overflow-hidden p-4 gap-4">
-                <div className="bg-[#1D1D24] p-4 rounded-xl border border-gray-800 flex flex-wrap items-center justify-between gap-3">
+                <div className="bg-black p-4 rounded-xl border border-gray-800 flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="text-sm text-gray-200 font-medium">
                       Auto-Query Tab Search Ready
@@ -2253,7 +2237,7 @@
                   </a>
                 </div>
 
-                <div className="flex-1 bg-[#1A1A20] rounded-xl border border-[#2D2D36] p-4 flex flex-col overflow-hidden">
+                <div className="flex-1 bg-black rounded-xl border border-[#2D2D36] p-4 flex flex-col overflow-hidden">
                   <h3 className="text-sm font-semibold text-gray-200 mb-3">
                     Tab Screenshots &amp; Custom Reference Notes
                   </h3>
@@ -2264,12 +2248,12 @@
                       placeholder="Paste Image URL / Screenshot Link..."
                       value={snapshotUrlInput}
                       onChange={(e) => setSnapshotUrlInput(e.target.value)}
-                      className="flex-1 bg-[#121215] border border-gray-800 rounded-lg px-3 py-1.5 text-xs text-gray-200 focus:outline-none focus:border-amber-500"
+                      className="flex-1 bg-black border border-gray-800 rounded-lg px-3 py-1.5 text-xs text-gray-200 focus:outline-none focus:border-amber-500"
                     />
                     <button
                       type="button"
                       onClick={() => addSnapshotToSong(drawerSong.id)}
-                      className="bg-gray-800 hover:bg-gray-700 text-gray-200 text-xs px-3 py-1.5 rounded-lg border border-gray-700 font-medium"
+                      className="bg-[#0d0d0d] hover:bg-[#1a1a1a] text-gray-200 text-xs px-3 py-1.5 rounded-lg border border-gray-700 font-medium"
                     >
                       Save Snapshot
                     </button>
@@ -2315,7 +2299,7 @@
           {/* ADD SONG MODAL */}
           {showAddModal && (
             <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-              <div className="bg-[#1C1C22] border border-[#2D2D36] rounded-2xl w-full max-w-md p-6 shadow-2xl">
+              <div className="bg-black border border-[#2D2D36] rounded-2xl w-full max-w-md p-6 shadow-2xl">
                 <div className="flex justify-between items-center mb-5">
                   <h3 className="font-bold text-lg text-gray-100">Add New Song to Board</h3>
                   <button
@@ -2337,7 +2321,7 @@
                       placeholder="e.g. https://www.youtube.com/watch?v=... or Artist - Song"
                       value={importUrl}
                       onChange={(e) => setImportUrl(e.target.value)}
-                      className="w-full bg-[#121215] border border-gray-800 rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-amber-500"
+                      className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-amber-500"
                     />
                   </div>
 
@@ -2350,7 +2334,7 @@
                       placeholder="e.g. Pink Floyd"
                       value={manualArtist}
                       onChange={(e) => setManualArtist(e.target.value)}
-                      className="w-full bg-[#121215] border border-gray-800 rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-amber-500"
+                      className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-amber-500"
                     />
                   </div>
 
@@ -2363,7 +2347,7 @@
                       placeholder="e.g. Wish You Were Here"
                       value={manualTitle}
                       onChange={(e) => setManualTitle(e.target.value)}
-                      className="w-full bg-[#121215] border border-gray-800 rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-amber-500"
+                      className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-amber-500"
                     />
                   </div>
 
