@@ -66,6 +66,66 @@
         this.noiseBuffer = null;
         this.drumGain = null;
         this.drumVolume = 1;
+        this.drone = null;
+        this.droneVolume = 0.5;
+      }
+
+      // Sustained drone: warm detuned saw pair per note, low-passed, with soft fades
+      startDrone(freqs) {
+        try {
+          this.init();
+          if (!this.ctx) return;
+          this.stopDrone();
+          const t = this.ctx.currentTime;
+          const master = this.ctx.createGain();
+          master.gain.setValueAtTime(0, t);
+          master.gain.linearRampToValueAtTime(this.droneVolume, t + 0.2);
+          const lp = this.ctx.createBiquadFilter();
+          lp.type = 'lowpass';
+          lp.frequency.value = 900;
+          lp.Q.value = 0.7;
+          lp.connect(master);
+          master.connect(this.ctx.destination);
+          const oscs = [];
+          const perOsc = 0.5 / (freqs.length * 2);
+          freqs.forEach((f) => {
+            [-6, 6].forEach((cents) => {
+              const o = this.ctx.createOscillator();
+              o.type = 'sawtooth';
+              o.frequency.value = f;
+              o.detune.value = cents;
+              const g = this.ctx.createGain();
+              g.gain.value = perOsc;
+              o.connect(g);
+              g.connect(lp);
+              o.start(t);
+              oscs.push(o);
+            });
+          });
+          this.drone = { oscs, master };
+        } catch (err) {
+          console.error('Drone error:', err);
+        }
+      }
+
+      stopDrone() {
+        if (!this.drone || !this.ctx) return;
+        const { oscs, master } = this.drone;
+        this.drone = null;
+        try {
+          const t = this.ctx.currentTime;
+          master.gain.cancelScheduledValues(t);
+          master.gain.setValueAtTime(master.gain.value, t);
+          master.gain.linearRampToValueAtTime(0, t + 0.15);
+          oscs.forEach((o) => o.stop(t + 0.2));
+        } catch (err) {}
+      }
+
+      setDroneVolume(v) {
+        this.droneVolume = Math.max(0, Number(v) || 0);
+        if (this.drone && this.ctx) {
+          this.drone.master.gain.setTargetAtTime(this.droneVolume, this.ctx.currentTime, 0.03);
+        }
       }
 
       init() {
@@ -849,6 +909,26 @@
       const timerRef = useRef(null);
       const [drumVolume, setDrumVolume] = useState(100);
       const [tabOverwrite, setTabOverwrite] = useState(true);
+      const [droneOn, setDroneOn] = useState(false);
+      const [droneNote, setDroneNote] = useState('A');
+      const [droneOctave, setDroneOctave] = useState(2);
+      const [droneFifth, setDroneFifth] = useState(false);
+      const [droneVolume, setDroneVolume] = useState(50);
+
+      useEffect(() => {
+        if (!droneOn) {
+          audioSynthesizer.stopDrone();
+          return undefined;
+        }
+        const midi = 12 * (droneOctave + 1) + CHROMATIC_SCALE.indexOf(droneNote);
+        const root = 440 * Math.pow(2, (midi - 69) / 12);
+        audioSynthesizer.startDrone(droneFifth ? [root, root * 1.5] : [root]);
+        return () => audioSynthesizer.stopDrone();
+      }, [droneOn, droneNote, droneOctave, droneFifth]);
+
+      useEffect(() => {
+        audioSynthesizer.setDroneVolume(droneVolume / 100);
+      }, [droneVolume]);
 
       useEffect(() => {
         audioSynthesizer.setDrumVolume(drumVolume / 100);
@@ -1660,6 +1740,7 @@
                 type="button"
                 onClick={() => {
                   setIsPlayingMetronome(false);
+                  setDroneOn(false);
                   setExpandedSongId(null);
                 }}
                 className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#0d0d0d] hover:bg-[#1a1a1a] text-gray-200 border border-gray-700"
@@ -1759,6 +1840,71 @@
                     {isPlayingMetronome ? 'Stop Drums' : 'Start Drums'}
                   </button>
                 </div>
+              </div>
+
+              {/* Drone: sustained note to play along with */}
+              <div className="flex flex-wrap items-center gap-3 text-xs mt-3 pt-3 border-t border-gray-800">
+                <span className="font-bold uppercase tracking-wider text-amber-400 text-[11px]">Drone</span>
+                <select
+                  value={droneNote}
+                  onChange={(e) => setDroneNote(e.target.value)}
+                  className="bg-black border border-gray-800 rounded-lg px-2.5 py-1 text-gray-200"
+                >
+                  {CHROMATIC_SCALE.map((n) => (
+                    <option key={n} value={n}>
+                      Note: {n}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={droneOctave}
+                  onChange={(e) => setDroneOctave(Number(e.target.value))}
+                  className="bg-black border border-gray-800 rounded-lg px-2.5 py-1 text-gray-200"
+                >
+                  {[1, 2, 3, 4].map((o) => (
+                    <option key={o} value={o}>
+                      Octave {o}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => setDroneNote(scaleRoot)}
+                  className="px-2.5 py-1 rounded-lg border border-gray-700 text-gray-300 hover:text-amber-300 hover:bg-[#161616]"
+                  title="Set the drone to the key chosen in the Scale section"
+                >
+                  Match key ({scaleRoot})
+                </button>
+                <label className="flex items-center gap-1.5 text-gray-300 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={droneFifth}
+                    onChange={(e) => setDroneFifth(e.target.checked)}
+                    className="accent-amber-500"
+                  />
+                  Add 5th
+                </label>
+                <span className="text-gray-400">Vol</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={droneVolume}
+                  onChange={(e) => setDroneVolume(Number(e.target.value))}
+                  className="w-24 accent-amber-500 cursor-pointer"
+                />
+                <span className="font-mono text-amber-300 font-bold w-10">{droneVolume}%</span>
+                <button
+                  type="button"
+                  onClick={() => setDroneOn((prev) => !prev)}
+                  className={`px-3.5 py-1.5 rounded-lg font-bold text-xs ${
+                    droneOn
+                      ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40'
+                      : 'bg-amber-500 text-gray-950 hover:bg-amber-400'
+                  }`}
+                >
+                  {droneOn ? 'Stop Drone' : 'Start Drone'}
+                </button>
               </div>
             </section>
 
