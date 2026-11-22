@@ -273,25 +273,39 @@
       if (!isActive) {
         return 'bg-[#181820] text-gray-600 border border-gray-800/70 hover:text-gray-300';
       }
+      // Warm trio: red / orange / lemon-yellow (clearly separated hues)
       if (intervalLabel === 'R') {
-        return 'bg-amber-500 text-gray-950 border border-amber-300 font-bold';
+        return 'bg-red-500 text-white border border-red-300 font-bold';
       }
       if (intervalLabel === '3') {
         return 'bg-orange-500 text-gray-950 border border-orange-300 font-bold';
       }
       if (intervalLabel === '5') {
-        return 'bg-yellow-500 text-gray-950 border border-yellow-300 font-bold';
+        return 'bg-yellow-300 text-gray-950 border border-yellow-100 font-bold';
       }
-      if (intervalLabel === 'b3' || intervalLabel === '2' || intervalLabel === 'b2') {
-        return 'bg-cyan-500/25 text-cyan-200 border border-cyan-400/50 font-semibold';
+      // Cool tones: each interval gets its own hue (cyan, teal, blue, indigo, green, violet, magenta)
+      if (intervalLabel === '2' || intervalLabel === 'b2') {
+        return 'bg-cyan-500 text-gray-950 border border-cyan-200 font-semibold';
       }
-      if (intervalLabel === '4' || intervalLabel === 'b5' || intervalLabel === '#5') {
-        return 'bg-sky-500/25 text-sky-200 border border-sky-400/50 font-semibold';
+      if (intervalLabel === 'b3') {
+        return 'bg-teal-600 text-white border border-teal-300 font-semibold';
       }
-      if (intervalLabel === '6' || intervalLabel === 'b7' || intervalLabel === '7') {
-        return 'bg-indigo-500/30 text-indigo-200 border border-indigo-400/50 font-semibold';
+      if (intervalLabel === '4') {
+        return 'bg-blue-600 text-white border border-blue-300 font-semibold';
       }
-      return 'bg-teal-500/25 text-teal-200 border border-teal-400/50 font-semibold';
+      if (intervalLabel === 'b5' || intervalLabel === '#5') {
+        return 'bg-indigo-700 text-indigo-100 border border-indigo-300 font-semibold';
+      }
+      if (intervalLabel === '6') {
+        return 'bg-emerald-500 text-gray-950 border border-emerald-200 font-semibold';
+      }
+      if (intervalLabel === 'b7') {
+        return 'bg-violet-600 text-white border border-violet-300 font-semibold';
+      }
+      if (intervalLabel === '7') {
+        return 'bg-fuchsia-600 text-white border border-fuchsia-300 font-semibold';
+      }
+      return 'bg-slate-600 text-white border border-slate-300 font-semibold';
     }
 
     function extractYouTubeId(url) {
@@ -491,7 +505,7 @@
           sourceUrl: importUrl.trim(),
           column: 'want',
           snapshots: [],
-          attachedPreset: { bpm, chord: `${selectedRoot} ${selectedChordType}` },
+          attachedPreset: { bpm, chord: `${scaleRoot} ${selectedScaleName}` },
           createdAt: new Date().toISOString()
         };
 
@@ -561,6 +575,100 @@
         );
         setSnapshotUrlInput('');
         showNotice('Snapshot saved to song');
+      };
+
+      // Shrink pasted screenshots so they fit comfortably in localStorage
+      const imageFileToDataUrl = (file) =>
+        new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onerror = () => reject(new Error('read failed'));
+          reader.onload = () => {
+            const img = new Image();
+            img.onerror = () => reject(new Error('decode failed'));
+            img.onload = () => {
+              const maxW = 1400;
+              const scale = Math.min(1, maxW / img.width);
+              const canvas = document.createElement('canvas');
+              canvas.width = Math.round(img.width * scale);
+              canvas.height = Math.round(img.height * scale);
+              const c = canvas.getContext('2d');
+              c.fillStyle = '#ffffff';
+              c.fillRect(0, 0, canvas.width, canvas.height);
+              c.drawImage(img, 0, 0, canvas.width, canvas.height);
+              resolve(canvas.toDataURL('image/jpeg', 0.85));
+            };
+            img.src = reader.result;
+          };
+          reader.readAsDataURL(file);
+        });
+
+      const removeSnapshot = (songId, index) => {
+        setSongs((prev) =>
+          prev.map((s) =>
+            s.id === songId
+              ? { ...s, snapshots: (s.snapshots || []).filter((_, i) => i !== index) }
+              : s
+          )
+        );
+        showNotice('Tab image removed');
+      };
+
+      const addSnapshotData = (songId, dataUrl) => {
+        setSongs((prev) =>
+          prev.map((s) =>
+            s.id === songId ? { ...s, snapshots: [...(s.snapshots || []), dataUrl] } : s
+          )
+        );
+      };
+
+      const handleTabPaste = async (e, songId) => {
+        const items = Array.from(e.clipboardData?.items || []);
+        const imgItem = items.find((it) => it.type && it.type.startsWith('image/'));
+        if (imgItem) {
+          e.preventDefault();
+          const file = imgItem.getAsFile();
+          if (!file) return;
+          try {
+            const dataUrl = await imageFileToDataUrl(file);
+            addSnapshotData(songId, dataUrl);
+            showNotice('Tab image pasted from clipboard');
+          } catch (err) {
+            showNotice('Could not read pasted image');
+          }
+        }
+        // Plain text (e.g. an image URL) falls through to the input as normal
+      };
+
+      const pasteFromClipboardButton = async (songId) => {
+        try {
+          if (navigator.clipboard && navigator.clipboard.read) {
+            const clipItems = await navigator.clipboard.read();
+            for (const item of clipItems) {
+              const imgType = item.types.find((t) => t.startsWith('image/'));
+              if (imgType) {
+                const blob = await item.getType(imgType);
+                const dataUrl = await imageFileToDataUrl(blob);
+                addSnapshotData(songId, dataUrl);
+                showNotice('Tab image pasted from clipboard');
+                return;
+              }
+              if (item.types.includes('text/plain')) {
+                const blob = await item.getType('text/plain');
+                const text = (await blob.text()).trim();
+                if (text) {
+                  setSnapshotUrlInput(text);
+                  showNotice('Pasted link — press Add Tab Image');
+                  return;
+                }
+              }
+            }
+            showNotice('Clipboard is empty');
+          } else {
+            showNotice('Click the box and press Ctrl+V instead');
+          }
+        } catch (err) {
+          showNotice('Clipboard blocked — click the box and press Ctrl+V');
+        }
       };
 
       const getSongsterrUrl = (artist, title) => {
@@ -1024,39 +1132,6 @@
             </div>
           </div>
 
-          {/* Optional Compact Expandable Track Audio/Embed Strip */}
-          {expandedPlayerActive && expandedMedia && (
-            <div className="w-full bg-[#15151C] border-b border-[#272730] px-4 sm:px-6 py-2 flex items-center justify-between gap-4 shrink-0">
-              {expandedMedia.kind === 'youtube' ? (
-                <div className="w-full flex items-center justify-between gap-4">
-                  <div className="w-44 h-16 rounded overflow-hidden border border-gray-700 bg-black shrink-0">
-                    <iframe
-                      src={expandedMedia.embedUrl}
-                      title={expandedSong.title}
-                      className="w-full h-full"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                    />
-                  </div>
-                  <span className="text-xs text-gray-400 truncate">
-                    Low-profile embedded player active
-                  </span>
-                </div>
-              ) : expandedMedia.kind === 'audio' ? (
-                <audio src={expandedMedia.audioUrl} controls autoPlay className="w-full h-8" />
-              ) : (
-                <a
-                  href={expandedMedia.watchUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-xs text-amber-400 hover:underline truncate"
-                >
-                  Open linked track: {expandedMedia.watchUrl} ↗
-                </a>
-              )}
-            </div>
-          )}
-
           {/* Hidden-by-default Song Details Drawer Strip */}
           {showExpandedDetails && (
             <div className="w-full bg-[#1A1A22] border-b border-[#2B2B35] px-4 sm:px-6 py-2.5 flex flex-wrap items-center gap-4 text-xs text-gray-300 shrink-0">
@@ -1085,8 +1160,15 @@
 
           {/* Stacked Focus Workspace: 1. Tab Portion -> 2. Scale & Chord Generator -> 3. Drum Machine */}
           <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
-            {/* 1. TAB PORTION */}
-            <section className="bg-[#18181E] border border-[#2C2C36] rounded-xl p-4 shadow-lg">
+            {/* 1. TAB PORTION + PLAYER (same row) */}
+            <div
+              className={`grid gap-5 items-start ${
+                expandedPlayerActive && expandedMedia
+                  ? 'grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,520px)]'
+                  : 'grid-cols-1'
+              }`}
+            >
+            <section className="bg-[#18181E] border border-[#2C2C36] rounded-xl p-4 shadow-lg min-w-0">
               <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-amber-400">
                   1. Tablature &amp; Snapshots
@@ -1114,27 +1196,48 @@
               <div className="flex gap-2 mb-3">
                 <input
                   type="text"
-                  placeholder="Paste tab screenshot image URL..."
+                  placeholder="Ctrl+V to paste a tab screenshot, or paste an image URL..."
                   value={snapshotUrlInput}
                   onChange={(e) => setSnapshotUrlInput(e.target.value)}
-                  className="flex-1 bg-[#121216] border border-gray-800 rounded-lg px-3 py-1.5 text-xs text-gray-200 focus:outline-none focus:border-amber-500"
+                  onPaste={(e) => handleTabPaste(e, expandedSong.id)}
+                  className="flex-1 min-w-0 bg-[#121216] border border-gray-800 rounded-lg px-3 py-1.5 text-xs text-gray-200 focus:outline-none focus:border-amber-500"
                 />
                 <button
                   type="button"
+                  onClick={() => pasteFromClipboardButton(expandedSong.id)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#22222B] text-amber-300 border border-amber-500/30 hover:bg-[#2a2a35] shrink-0"
+                >
+                  Paste
+                </button>
+                <button
+                  type="button"
                   onClick={() => addSnapshotToSong(expandedSong.id)}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500 text-gray-950 hover:bg-amber-400"
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500 text-gray-950 hover:bg-amber-400 shrink-0"
                 >
                   Add Tab Image
                 </button>
               </div>
+              {statusBanner && (
+                <div className="mb-3 text-[11px] font-mono text-amber-300 bg-amber-500/10 border border-amber-500/30 px-3 py-1 rounded-lg inline-block">
+                  {statusBanner}
+                </div>
+              )}
 
               {expandedSong.snapshots && expandedSong.snapshots.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {expandedSong.snapshots.map((img, idx) => (
                     <div
                       key={idx}
-                      className="rounded-lg overflow-hidden border border-gray-800 bg-black p-1"
+                      className="relative rounded-lg overflow-hidden border border-gray-800 bg-black p-1"
                     >
+                      <button
+                        type="button"
+                        onClick={() => removeSnapshot(expandedSong.id, idx)}
+                        title="Delete this tab image"
+                        className="absolute top-2 right-2 z-10 w-6 h-6 rounded-full bg-black/70 hover:bg-rose-600 text-gray-200 text-xs font-bold border border-gray-600"
+                      >
+                        ✕
+                      </button>
                       <img
                         src={img}
                         alt={`Tab ${idx + 1}`}
@@ -1149,10 +1252,39 @@
                 </div>
               ) : (
                 <p className="text-xs text-gray-500 py-2">
-                  Launch Songsterr or Ultimate Guitar above or paste a tab screenshot URL.
+                  Launch Songsterr or Ultimate Guitar above, then press Ctrl+V in the box to paste a tab screenshot.
                 </p>
               )}
             </section>
+
+            {/* Full-size track player, same row as the tab search bar */}
+            {expandedPlayerActive && expandedMedia && (
+              <div className="bg-[#18181E] border border-[#2C2C36] rounded-xl p-3 shadow-lg min-w-0">
+                {expandedMedia.kind === 'youtube' ? (
+                  <div className="aspect-video w-full bg-black rounded-lg overflow-hidden border border-gray-800">
+                    <iframe
+                      src={expandedMedia.embedUrl}
+                      title={expandedSong.title}
+                      className="w-full h-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  </div>
+                ) : expandedMedia.kind === 'audio' ? (
+                  <audio src={expandedMedia.audioUrl} controls autoPlay className="w-full" />
+                ) : (
+                  <a
+                    href={expandedMedia.watchUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs text-amber-400 hover:underline break-all"
+                  >
+                    Open linked track: {expandedMedia.watchUrl} ↗
+                  </a>
+                )}
+              </div>
+            )}
+            </div>
 
             {/* 2. SCALE & BLANK INTERACTIVE CHORD GENERATOR */}
             <section className="bg-[#18181E] border border-[#2C2C36] rounded-xl p-4 shadow-lg space-y-4">
@@ -1570,6 +1702,14 @@
                           key={idx}
                           className="relative group border border-gray-800 rounded-lg overflow-hidden bg-black"
                         >
+                          <button
+                            type="button"
+                            onClick={() => removeSnapshot(drawerSong.id, idx)}
+                            title="Delete this tab image"
+                            className="absolute top-2 right-2 z-10 w-6 h-6 rounded-full bg-black/70 hover:bg-rose-600 text-gray-200 text-xs font-bold border border-gray-600"
+                          >
+                            ✕
+                          </button>
                           <img
                             src={img}
                             alt={`Tab Snapshot ${idx + 1}`}
