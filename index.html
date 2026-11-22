@@ -64,6 +64,8 @@
       constructor() {
         this.ctx = null;
         this.noiseBuffer = null;
+        this.drumGain = null;
+        this.drumVolume = 1;
       }
 
       init() {
@@ -71,6 +73,9 @@
           if (!this.ctx) {
             const AudioCtx = window.AudioContext || window.webkitAudioContext;
             this.ctx = new AudioCtx();
+            this.drumGain = this.ctx.createGain();
+            this.drumGain.gain.value = this.drumVolume;
+            this.drumGain.connect(this.ctx.destination);
           }
           if (this.ctx.state === 'suspended') {
             this.ctx.resume();
@@ -87,6 +92,11 @@
         } catch (err) {
           console.error('AudioEngine init error:', err);
         }
+      }
+
+      setDrumVolume(v) {
+        this.drumVolume = Math.max(0, Number(v) || 0);
+        if (this.drumGain) this.drumGain.gain.value = this.drumVolume;
       }
 
       // Karplus-Strong physical string pluck synthesis
@@ -151,7 +161,7 @@
             gain.gain.setValueAtTime(1.0, t);
             gain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
             osc.connect(gain);
-            gain.connect(this.ctx.destination);
+            gain.connect(this.drumGain || this.ctx.destination);
             osc.start(t);
             osc.stop(t + 0.15);
           } else if (type === 'snare') {
@@ -166,7 +176,7 @@
 
             noise.connect(noiseFilter);
             noiseFilter.connect(noiseGain);
-            noiseGain.connect(this.ctx.destination);
+            noiseGain.connect(this.drumGain || this.ctx.destination);
 
             const osc = this.ctx.createOscillator();
             const oscGain = this.ctx.createGain();
@@ -174,7 +184,7 @@
             oscGain.gain.setValueAtTime(0.5, t);
             oscGain.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
             osc.connect(oscGain);
-            oscGain.connect(this.ctx.destination);
+            oscGain.connect(this.drumGain || this.ctx.destination);
 
             osc.start(t);
             noise.start(t);
@@ -192,7 +202,7 @@
 
             noise.connect(filter);
             filter.connect(gain);
-            gain.connect(this.ctx.destination);
+            gain.connect(this.drumGain || this.ctx.destination);
             noise.start(t);
             noise.stop(t + 0.05);
           }
@@ -376,6 +386,431 @@
     }
 
     // =========================================================================
+    // PRACTICE ROOM CONSTANTS + AUDIO-ONLY TRACK PLAYER
+    // =========================================================================
+    const PRACTICE_ID = 'practice-room';
+    const makeBlankStaff = () =>
+      ['e', 'B', 'G', 'D', 'A', 'E'].map((n) => `${n}|${'-'.repeat(48)}|`).join('\n');
+
+    let ytApiPromise = null;
+    function loadYouTubeApi() {
+      if (window.YT && window.YT.Player) return Promise.resolve(window.YT);
+      if (!ytApiPromise) {
+        ytApiPromise = new Promise((resolve) => {
+          const prev = window.onYouTubeIframeAPIReady;
+          window.onYouTubeIframeAPIReady = () => {
+            if (typeof prev === 'function') prev();
+            resolve(window.YT);
+          };
+          const tag = document.createElement('script');
+          tag.src = 'https://www.youtube.com/iframe_api';
+          document.head.appendChild(tag);
+        });
+      }
+      return ytApiPromise;
+    }
+
+    const SPEED_OPTIONS = [0.25, 0.5, 0.75, 1, 1.25, 1.5];
+
+    function formatClock(sec) {
+      const total = Math.max(0, Math.round((Number(sec) || 0) * 10));
+      const m = Math.floor(total / 600);
+      const rem = total % 600;
+      const secs = Math.floor(rem / 10);
+      return `${m}:${secs < 10 ? '0' : ''}${secs}.${rem % 10}`;
+    }
+
+    // Audio only: the YouTube video is loaded in an off-screen player and driven through its API.
+    function TrackAudioBar({ media, hidden }) {
+      const ctlRef = useRef(null);
+      const hostRef = useRef(null);
+      const draggingRef = useRef(false);
+      const [ready, setReady] = useState(false);
+      const [error, setError] = useState('');
+      const [playing, setPlaying] = useState(false);
+      const [cur, setCur] = useState(0);
+      const [dur, setDur] = useState(0);
+      const [rate, setRate] = useState(1);
+      const [volume, setVolume] = useState(100);
+      const [pointA, setPointA] = useState(null);
+      const [pointB, setPointB] = useState(null);
+      const [loopOn, setLoopOn] = useState(false);
+
+      const loopRef = useRef({ on: false, a: null, b: null });
+      loopRef.current = { on: loopOn, a: pointA, b: pointB };
+      const volRef = useRef(100);
+      volRef.current = volume;
+      const rateRef = useRef(1);
+      rateRef.current = rate;
+
+      // Build the player for the current track
+      useEffect(() => {
+        let cancelled = false;
+        let ytPlayer = null;
+        let audioEl = null;
+        ctlRef.current = null;
+        setReady(false);
+        setError('');
+        setPlaying(false);
+        setCur(0);
+        setDur(0);
+        setPointA(null);
+        setPointB(null);
+        setLoopOn(false);
+
+        if (media.kind === 'youtube') {
+          loadYouTubeApi().then((YT) => {
+            if (cancelled || !hostRef.current) return;
+            const mount = document.createElement('div');
+            hostRef.current.appendChild(mount);
+            const vars = { controls: 0, disablekb: 1, playsinline: 1, rel: 0, modestbranding: 1, fs: 0 };
+            if (/^https?:/.test(window.location.origin)) vars.origin = window.location.origin;
+            ytPlayer = new YT.Player(mount, {
+              width: '200',
+              height: '200',
+              videoId: media.id,
+              playerVars: vars,
+              events: {
+                onReady: () => {
+                  if (cancelled) return;
+                  ctlRef.current = {
+                    play: () => ytPlayer.playVideo(),
+                    pause: () => ytPlayer.pauseVideo(),
+                    seek: (t) => ytPlayer.seekTo(t, true),
+                    time: () => ytPlayer.getCurrentTime(),
+                    duration: () => ytPlayer.getDuration(),
+                    isPlaying: () => ytPlayer.getPlayerState() === 1,
+                    setRate: (r) => ytPlayer.setPlaybackRate(r),
+                    setVolume: (v) => ytPlayer.setVolume(v),
+                  };
+                  ytPlayer.setVolume(volRef.current);
+                  ytPlayer.setPlaybackRate(rateRef.current);
+                  setDur(ytPlayer.getDuration() || 0);
+                  setReady(true);
+                },
+                onError: () => {
+                  if (!cancelled) setError("YouTube won't play this video here. Try a different link.");
+                },
+              },
+            });
+          });
+        } else if (media.kind === 'audio') {
+          audioEl = new Audio(media.audioUrl);
+          audioEl.preload = 'metadata';
+          audioEl.volume = volRef.current / 100;
+          audioEl.onloadedmetadata = () => setDur(audioEl.duration || 0);
+          audioEl.onerror = () => setError('Could not load this audio file.');
+          ctlRef.current = {
+            play: () => audioEl.play(),
+            pause: () => audioEl.pause(),
+            seek: (t) => {
+              audioEl.currentTime = t;
+            },
+            time: () => audioEl.currentTime,
+            duration: () => audioEl.duration || 0,
+            isPlaying: () => !audioEl.paused && !audioEl.ended,
+            setRate: (r) => {
+              audioEl.playbackRate = r;
+            },
+            setVolume: (v) => {
+              audioEl.volume = Math.max(0, Math.min(1, v / 100));
+            },
+          };
+          setReady(true);
+        }
+
+        return () => {
+          cancelled = true;
+          try {
+            if (ytPlayer && ytPlayer.destroy) ytPlayer.destroy();
+          } catch (err) {}
+          if (audioEl) {
+            audioEl.pause();
+            audioEl.src = '';
+          }
+          ctlRef.current = null;
+          if (hostRef.current) hostRef.current.innerHTML = '';
+        };
+      }, [media.kind, media.id, media.audioUrl]);
+
+      useEffect(() => {
+        const c = ctlRef.current;
+        if (!c || !ready) return;
+        try {
+          c.setRate(rate);
+        } catch (err) {}
+      }, [rate, ready]);
+
+      useEffect(() => {
+        const c = ctlRef.current;
+        if (!c || !ready) return;
+        try {
+          c.setVolume(volume);
+        } catch (err) {}
+      }, [volume, ready]);
+
+      // Poll time, play state and enforce the A-B loop
+      useEffect(() => {
+        if (!ready) return undefined;
+        const id = setInterval(() => {
+          const c = ctlRef.current;
+          if (!c) return;
+          try {
+            const t = c.time();
+            const d = c.duration();
+            if (d > 0) setDur((prev) => (Math.abs(prev - d) > 0.05 ? d : prev));
+            const isPlay = c.isPlaying();
+            setPlaying((prev) => (prev === isPlay ? prev : isPlay));
+            const lp = loopRef.current;
+            if (lp.on && lp.a != null && lp.b != null && lp.b > lp.a && isPlay && t >= lp.b) {
+              c.seek(lp.a);
+              setCur(lp.a);
+              return;
+            }
+            if (!draggingRef.current) setCur(t);
+          } catch (err) {}
+        }, 100);
+        return () => clearInterval(id);
+      }, [ready]);
+
+      const togglePlay = () => {
+        const c = ctlRef.current;
+        if (!c) return;
+        try {
+          if (c.isPlaying()) c.pause();
+          else c.play();
+        } catch (err) {}
+      };
+
+      const seekTo = (t) => {
+        const c = ctlRef.current;
+        if (!c) return;
+        const max = dur > 0 ? dur : t;
+        const clamped = Math.max(0, Math.min(max, t));
+        try {
+          c.seek(clamped);
+        } catch (err) {}
+        setCur(clamped);
+      };
+
+      const nudge = (delta) => {
+        const c = ctlRef.current;
+        if (!c) return;
+        let t = cur;
+        try {
+          t = c.time();
+        } catch (err) {}
+        seekTo(t + delta);
+      };
+
+      const livePosition = () => {
+        const c = ctlRef.current;
+        if (!c) return cur;
+        try {
+          return c.time();
+        } catch (err) {
+          return cur;
+        }
+      };
+
+      const markA = () => {
+        const t = livePosition();
+        setPointA(t);
+        if (pointB != null && t >= pointB) setPointB(null);
+      };
+
+      const markB = () => {
+        const t = livePosition();
+        setPointB(t);
+        if (pointA != null && t <= pointA) setPointA(null);
+      };
+
+      const clearLoop = () => {
+        setPointA(null);
+        setPointB(null);
+        setLoopOn(false);
+      };
+
+      const toggleLoop = () => {
+        if (!loopOn && pointA != null && pointB != null) {
+          const t = livePosition();
+          if (t < pointA || t > pointB) seekTo(pointA);
+        }
+        setLoopOn((prev) => !prev);
+      };
+
+      const hasLoop = pointA != null && pointB != null && pointB > pointA;
+      const pct = (v) => (dur > 0 ? `${Math.max(0, Math.min(100, (v / dur) * 100))}%` : '0%');
+      const btn = 'px-2 py-1 rounded border font-mono font-semibold transition-colors';
+      const btnIdle = 'bg-[#1B1B23] text-gray-300 border-gray-700 hover:text-amber-300';
+
+      return (
+        <>
+          <div
+            ref={hostRef}
+            aria-hidden="true"
+            style={{ position: 'fixed', left: -1000, top: 0, width: 200, height: 200, overflow: 'hidden', pointerEvents: 'none' }}
+          />
+          <div
+            className={`${
+              hidden ? 'hidden' : 'flex'
+            } flex-1 min-w-[420px] flex-col gap-1.5 rounded-lg bg-[#121218] border border-[#2B2B35] px-3 py-2`}
+          >
+            {error ? (
+              <span className="text-xs text-rose-300">{error}</span>
+            ) : (
+              <>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={togglePlay}
+                    disabled={!ready}
+                    title={playing ? 'Pause' : 'Play'}
+                    className="w-9 h-9 shrink-0 rounded-full bg-amber-500 text-gray-950 font-bold text-sm hover:bg-amber-400 disabled:opacity-40 flex items-center justify-center"
+                  >
+                    {playing ? '❚❚' : '▶'}
+                  </button>
+                  <span className="font-mono text-xs text-amber-300 w-32 shrink-0">
+                    {ready ? `${formatClock(cur)} / ${formatClock(dur)}` : 'Loading…'}
+                  </span>
+                  <div className="flex-1 min-w-[160px]">
+                    <input
+                      type="range"
+                      min="0"
+                      max={dur || 0}
+                      step="0.1"
+                      value={Math.min(cur, dur || 0)}
+                      disabled={!ready || !dur}
+                      onPointerDown={() => {
+                        draggingRef.current = true;
+                      }}
+                      onPointerUp={() => {
+                        draggingRef.current = false;
+                      }}
+                      onPointerCancel={() => {
+                        draggingRef.current = false;
+                      }}
+                      onBlur={() => {
+                        draggingRef.current = false;
+                      }}
+                      onChange={(e) => seekTo(Number(e.target.value))}
+                      className="w-full h-4 cursor-pointer accent-amber-500 disabled:opacity-40"
+                    />
+                    <div className="relative h-1.5 mt-1 rounded bg-gray-800">
+                      {dur > 0 && pointA != null && (
+                        <div
+                          className={`absolute top-0 h-full ${loopOn ? 'bg-amber-500/80' : 'bg-amber-500/40'}`}
+                          style={{
+                            left: pct(pointA),
+                            width: pointB != null && pointB > pointA ? pct(pointB - pointA) : '0%',
+                          }}
+                        />
+                      )}
+                      {dur > 0 && pointA != null && (
+                        <span className="absolute -top-1 w-0.5 h-3.5 bg-emerald-300" style={{ left: pct(pointA) }} />
+                      )}
+                      {dur > 0 && pointB != null && (
+                        <span className="absolute -top-1 w-0.5 h-3.5 bg-rose-300" style={{ left: pct(pointB) }} />
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                  <button type="button" onClick={() => nudge(-5)} className={`${btn} ${btnIdle}`} title="Back 5 seconds">
+                    −5s
+                  </button>
+                  <button type="button" onClick={() => nudge(-1)} className={`${btn} ${btnIdle}`} title="Back 1 second">
+                    −1s
+                  </button>
+                  <button type="button" onClick={() => nudge(1)} className={`${btn} ${btnIdle}`} title="Forward 1 second">
+                    +1s
+                  </button>
+                  <button type="button" onClick={() => nudge(5)} className={`${btn} ${btnIdle}`} title="Forward 5 seconds">
+                    +5s
+                  </button>
+
+                  <span className="w-px h-5 bg-gray-700 mx-1" />
+
+                  <button
+                    type="button"
+                    onClick={markA}
+                    disabled={!ready}
+                    className={`${btn} ${
+                      pointA != null
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/50'
+                        : btnIdle
+                    }`}
+                    title="Set loop start (A) at the current time"
+                  >
+                    {pointA != null ? `A ${formatClock(pointA)}` : 'Set A'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={markB}
+                    disabled={!ready}
+                    className={`${btn} ${
+                      pointB != null ? 'bg-rose-500/20 text-rose-300 border-rose-400/50' : btnIdle
+                    }`}
+                    title="Set loop end (B) at the current time"
+                  >
+                    {pointB != null ? `B ${formatClock(pointB)}` : 'Set B'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={toggleLoop}
+                    disabled={!hasLoop}
+                    className={`${btn} disabled:opacity-40 ${
+                      loopOn ? 'bg-amber-500 text-gray-950 border-amber-300' : btnIdle
+                    }`}
+                    title="Loop between A and B"
+                  >
+                    Loop {loopOn ? 'On' : 'Off'}
+                  </button>
+                  {(pointA != null || pointB != null) && (
+                    <button type="button" onClick={clearLoop} className={`${btn} ${btnIdle}`} title="Clear A and B">
+                      Clear
+                    </button>
+                  )}
+
+                  <span className="w-px h-5 bg-gray-700 mx-1" />
+
+                  <label className="flex items-center gap-1.5 text-gray-400">
+                    Speed
+                    <select
+                      value={rate}
+                      onChange={(e) => setRate(Number(e.target.value))}
+                      className="bg-[#121216] border border-gray-700 rounded px-1.5 py-1 text-gray-200 font-mono"
+                    >
+                      {SPEED_OPTIONS.map((r) => (
+                        <option key={r} value={r}>
+                          {r}x
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="flex items-center gap-1.5 text-gray-400 ml-auto">
+                    Vol
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={volume}
+                      onChange={(e) => setVolume(Number(e.target.value))}
+                      className="w-24 accent-amber-500 cursor-pointer"
+                    />
+                    <span className="font-mono text-amber-300 w-8 text-right">{volume}</span>
+                  </label>
+                </div>
+              </>
+            )}
+          </div>
+        </>
+      );
+    }
+
+    // =========================================================================
     // MAIN APP COMPONENT
     // =========================================================================
     function App() {
@@ -396,6 +831,7 @@
       const [expandedSongId, setExpandedSongId] = useState(null);
       const [showExpandedDetails, setShowExpandedDetails] = useState(false);
       const [expandedPlayerActive, setExpandedPlayerActive] = useState(false);
+      const [expandedPlayerMounted, setExpandedPlayerMounted] = useState(false);
 
       // Inline card player state (stores active songId playing inline on card)
       const [inlinePlayingSongId, setInlinePlayingSongId] = useState(null);
@@ -411,14 +847,23 @@
       const [currentBeat, setCurrentBeat] = useState(0);
       const [drumPattern, setDrumPattern] = useState('rock'); // 'rock' | 'straight' | 'click'
       const timerRef = useRef(null);
+      const [drumVolume, setDrumVolume] = useState(100);
+      const [tabOverwrite, setTabOverwrite] = useState(true);
+
+      useEffect(() => {
+        audioSynthesizer.setDrumVolume(drumVolume / 100);
+      }, [drumVolume]);
 
       // Persist songs locally
       useEffect(() => {
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(songs));
-        } catch (err) {
-          console.error('Failed to save songs:', err);
-        }
+        const t = setTimeout(() => {
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(songs));
+          } catch (err) {
+            console.error('Failed to save songs:', err);
+          }
+        }, 400);
+        return () => clearTimeout(t);
       }, [songs]);
 
       const showNotice = (msg) => {
@@ -517,6 +962,61 @@
         showNotice(`Added "${finalTitle}" to Want to Learn`);
       };
 
+      const updateSongFields = (songId, patch) => {
+        setSongs((prev) => prev.map((s) => (s.id === songId ? { ...s, ...patch } : s)));
+      };
+
+      const openPracticeRoom = () => {
+        let practice = songs.find((s) => s.id === PRACTICE_ID);
+        if (!practice) {
+          practice = {
+            id: PRACTICE_ID,
+            artist: 'Free play',
+            title: 'Practice Room',
+            sourceUrl: '',
+            column: 'practice', // not a board column, so it never shows on the Kanban board
+            snapshots: [],
+            attachedPreset: null,
+            tabText: makeBlankStaff(),
+            createdAt: new Date().toISOString(),
+          };
+          const created = practice;
+          setSongs((prev) => (prev.some((s) => s.id === PRACTICE_ID) ? prev : [...prev, created]));
+        }
+        openExpandedSong(practice);
+        setScaleRoot('G');
+        setSelectedScaleName('Major (Ionian)');
+      };
+
+      const addBlankStaff = (songId, currentText) => {
+        const base = (currentText ?? '').replace(/\s+$/, '');
+        updateSongFields(songId, { tabText: `${base}${base ? '\n\n' : ''}${makeBlankStaff()}\n` });
+      };
+
+      // Overwrite mode: typing replaces the dash under the cursor so tab columns stay aligned
+      const handleTabKeyDown = (e, songId, value) => {
+        if (!tabOverwrite || e.ctrlKey || e.metaKey || e.altKey) return;
+        const ta = e.currentTarget;
+        const start = ta.selectionStart;
+        if (start !== ta.selectionEnd) return;
+        if (e.key.length === 1) {
+          const next = value.charAt(start);
+          if (next && next !== '\n') {
+            e.preventDefault();
+            updateSongFields(songId, { tabText: value.slice(0, start) + e.key + value.slice(start + 1) });
+            requestAnimationFrame(() => ta.setSelectionRange(start + 1, start + 1));
+          }
+        } else if (e.key === 'Backspace' && start > 0 && value.charAt(start - 1) !== '\n') {
+          e.preventDefault();
+          const atLineStart = start - 1 === 0 || value.charAt(start - 2) === '\n';
+          const prevChar = value.charAt(start - 1);
+          if (!atLineStart && /[0-9A-Za-z/\\~^()<>*=.hpbrx]/.test(prevChar)) {
+            updateSongFields(songId, { tabText: value.slice(0, start - 1) + '-' + value.slice(start) });
+          }
+          requestAnimationFrame(() => ta.setSelectionRange(start - 1, start - 1));
+        }
+      };
+
       const updateSongColumn = (songId, newCol) => {
         setSongs((prev) => prev.map((s) => (s.id === songId ? { ...s, column: newCol } : s)));
       };
@@ -538,6 +1038,7 @@
         setExpandedSongId(song.id);
         setShowExpandedDetails(false);
         setExpandedPlayerActive(false);
+        setExpandedPlayerMounted(false);
         setCustomChordSemitones([]);
 
         // Derive scale root and scale type automatically from song preset or song info
@@ -775,6 +1276,30 @@
 
       return (
         <div className="flex h-screen w-full bg-[#121212] text-gray-100 font-sans overflow-hidden select-none">
+          {/* SIDEBAR */}
+          <aside className="w-14 md:w-52 shrink-0 bg-[#15151A] border-r border-[#2A2A32] flex flex-col py-4 gap-1">
+            <div className="px-5 pb-2 hidden md:block text-[10px] uppercase tracking-widest text-gray-500 font-semibold">
+              Workspace
+            </div>
+            <button
+              type="button"
+              className="mx-2 flex items-center justify-center md:justify-start gap-3 px-3 py-2 rounded-lg bg-amber-500/15 text-amber-300 border border-amber-500/30 text-sm font-semibold"
+              title="Song Board"
+            >
+              <span className="text-base leading-none">♫</span>
+              <span className="hidden md:inline">Song Board</span>
+            </button>
+            <button
+              type="button"
+              onClick={openPracticeRoom}
+              className="mx-2 flex items-center justify-center md:justify-start gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-[#22222A] hover:text-amber-300 border border-transparent text-sm font-medium transition-colors"
+              title="Practice Room"
+            >
+              <span className="text-base leading-none">✎</span>
+              <span className="hidden md:inline">Practice Room</span>
+            </button>
+          </aside>
+
           {/* LEFT / MAIN WORKSPACE AREA */}
           <div className="flex-1 flex flex-col h-full overflow-hidden border-r border-[#2A2A32]">
             {/* HEADER / NAVIGATION */}
@@ -1075,7 +1600,7 @@
         <div className="fixed inset-0 bg-[#101014] z-40 flex flex-col overflow-hidden">
           {/* Top Low-Profile Wide Music Player Bar */}
           <div className="w-full bg-[#18181F] border-b border-[#2B2B35] px-4 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-3 shrink-0">
-            <div className="flex items-center gap-3 min-w-0">
+            <div className="flex items-center gap-3 min-w-0 lg:max-w-[260px]">
               {expandedMedia?.thumbnailUrl && (
                 <img
                   src={expandedMedia.thumbnailUrl}
@@ -1096,17 +1621,45 @@
                     — {expandedSong.artist}
                   </span>
                 </div>
-                <p className="text-[11px] text-gray-400 truncate">
-                  {expandedSong.sourceUrl || 'No song link attached'}
-                </p>
+                {expandedSong.id === PRACTICE_ID ? (
+                  <input
+                    type="text"
+                    placeholder="Optional: paste a YouTube or audio link to play along"
+                    value={expandedSong.sourceUrl || ''}
+                    onChange={(e) => updateSongFields(PRACTICE_ID, { sourceUrl: e.target.value })}
+                    className="mt-0.5 w-64 max-w-full bg-[#121216] border border-gray-800 rounded px-2 py-0.5 text-[11px] text-gray-200 select-text focus:outline-none focus:border-amber-500"
+                  />
+                ) : (
+                  <p className="text-[11px] text-gray-400 truncate">
+                    {expandedSong.sourceUrl || 'No song link attached'}
+                  </p>
+                )}
               </div>
             </div>
+
+            {expandedPlayerMounted && expandedMedia &&
+              (expandedMedia.kind === 'youtube' || expandedMedia.kind === 'audio') && (
+                <TrackAudioBar media={expandedMedia} hidden={!expandedPlayerActive} />
+              )}
+            {expandedPlayerActive && expandedMedia && expandedMedia.kind === 'link' && (
+              <a
+                href={expandedMedia.watchUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="flex-1 min-w-[200px] text-xs text-amber-400 hover:underline truncate"
+              >
+                Open linked track ↗
+              </a>
+            )}
 
             <div className="flex items-center gap-2 shrink-0">
               {expandedSong.sourceUrl && (
                 <button
                   type="button"
-                  onClick={() => setExpandedPlayerActive((prev) => !prev)}
+                  onClick={() => {
+                    setExpandedPlayerMounted(true);
+                    setExpandedPlayerActive((prev) => !prev);
+                  }}
                   className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-amber-500/25 transition-colors"
                 >
                   {expandedPlayerActive ? 'Hide Track Player' : '▶ Track Player'}
@@ -1160,20 +1713,13 @@
 
           {/* Stacked Focus Workspace: 1. Tab Portion -> 2. Scale & Chord Generator -> 3. Drum Machine */}
           <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
-            {/* 1. TAB PORTION + PLAYER (same row) */}
-            <div
-              className={`grid gap-5 items-start ${
-                expandedPlayerActive && expandedMedia
-                  ? 'grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,520px)]'
-                  : 'grid-cols-1'
-              }`}
-            >
+            {/* 1. TAB PORTION */}
             <section className="bg-[#18181E] border border-[#2C2C36] rounded-xl p-4 shadow-lg min-w-0">
               <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-amber-400">
                   1. Tablature &amp; Snapshots
                 </h3>
-                <div className="flex items-center gap-2">
+                <div className={`flex items-center gap-2 ${expandedSong.id === PRACTICE_ID ? 'hidden' : ''}`}>
                   <a
                     href={getSongsterrUrl(expandedSong.artist, expandedSong.title)}
                     target="_blank"
@@ -1223,6 +1769,59 @@
                 </div>
               )}
 
+              {expandedSong.id === PRACTICE_ID && (
+                <div className="mb-4 bg-[#131318] border border-gray-800 rounded-lg p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                    <span className="text-xs font-mono text-gray-300">
+                      Blank Tab Template — type your own tab
+                    </span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setTabOverwrite((prev) => !prev)}
+                        className={`px-2.5 py-1 rounded text-[11px] font-mono font-semibold border ${
+                          tabOverwrite
+                            ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                            : 'bg-[#1B1B23] text-gray-400 border-gray-700'
+                        }`}
+                        title="When on, typing replaces the dash under the cursor so the columns stay lined up"
+                      >
+                        Overwrite: {tabOverwrite ? 'On' : 'Off'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => addBlankStaff(expandedSong.id, expandedSong.tabText)}
+                        className="px-2.5 py-1 rounded text-[11px] font-semibold bg-[#22222B] text-gray-200 border border-gray-700 hover:text-amber-300"
+                      >
+                        + Add Staff
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm('Clear the tab template and start over?')) {
+                            updateSongFields(expandedSong.id, { tabText: makeBlankStaff() });
+                          }
+                        }}
+                        className="px-2.5 py-1 rounded text-[11px] font-semibold bg-[#22222B] text-gray-400 border border-gray-700 hover:text-rose-300"
+                      >
+                        Reset
+                      </button>
+                    </div>
+                  </div>
+                  <textarea
+                    value={expandedSong.tabText ?? makeBlankStaff()}
+                    onChange={(e) => updateSongFields(expandedSong.id, { tabText: e.target.value })}
+                    onKeyDown={(e) =>
+                      handleTabKeyDown(e, expandedSong.id, expandedSong.tabText ?? makeBlankStaff())
+                    }
+                    spellCheck={false}
+                    wrap="off"
+                    rows={Math.max(8, (expandedSong.tabText ?? makeBlankStaff()).split('\n').length + 1)}
+                    className="w-full bg-[#0E0E12] border border-gray-800 rounded-lg p-3 font-mono text-[13px] leading-5 text-amber-100 whitespace-pre overflow-x-auto resize-y select-text focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+              )}
+
               {expandedSong.snapshots && expandedSong.snapshots.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {expandedSong.snapshots.map((img, idx) => (
@@ -1256,35 +1855,6 @@
                 </p>
               )}
             </section>
-
-            {/* Full-size track player, same row as the tab search bar */}
-            {expandedPlayerActive && expandedMedia && (
-              <div className="bg-[#18181E] border border-[#2C2C36] rounded-xl p-3 shadow-lg min-w-0">
-                {expandedMedia.kind === 'youtube' ? (
-                  <div className="aspect-video w-full bg-black rounded-lg overflow-hidden border border-gray-800">
-                    <iframe
-                      src={expandedMedia.embedUrl}
-                      title={expandedSong.title}
-                      className="w-full h-full"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                    />
-                  </div>
-                ) : expandedMedia.kind === 'audio' ? (
-                  <audio src={expandedMedia.audioUrl} controls autoPlay className="w-full" />
-                ) : (
-                  <a
-                    href={expandedMedia.watchUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-xs text-amber-400 hover:underline break-all"
-                  >
-                    Open linked track: {expandedMedia.watchUrl} ↗
-                  </a>
-                )}
-              </div>
-            )}
-            </div>
 
             {/* 2. SCALE & BLANK INTERACTIVE CHORD GENERATOR */}
             <section className="bg-[#18181E] border border-[#2C2C36] rounded-xl p-4 shadow-lg space-y-4">
@@ -1583,6 +2153,16 @@
                     onChange={(e) => setBpm(Number(e.target.value))}
                     className="w-28 accent-amber-500 cursor-pointer"
                   />
+                  <span className="text-gray-400">Vol</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="150"
+                    value={drumVolume}
+                    onChange={(e) => setDrumVolume(Number(e.target.value))}
+                    className="w-24 accent-amber-500 cursor-pointer"
+                  />
+                  <span className="font-mono text-amber-300 font-bold w-10">{drumVolume}%</span>
                   <select
                     value={drumPattern}
                     onChange={(e) => setDrumPattern(e.target.value)}
