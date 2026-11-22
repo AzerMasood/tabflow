@@ -448,6 +448,48 @@
     // =========================================================================
     // PRACTICE ROOM CONSTANTS + AUDIO-ONLY TRACK PLAYER
     // =========================================================================
+    // ---- YouTube title/artist lookup (oEmbed) ----
+    function cleanVideoTitle(t) {
+      return String(t || '')
+        .replace(/\s*[\(\[][^\)\]]*(official|video|audio|lyric|remaster|live|hd|hq|4k|visuali[sz]er)[^\)\]]*[\)\]]/gi, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    function cleanChannelName(c) {
+      return String(c || '')
+        .replace(/\s*-\s*Topic$/i, '')
+        .replace(/\s*VEVO$/i, '')
+        .replace(/\s*official(\s*channel)?$/i, '')
+        .trim();
+    }
+
+    async function fetchYouTubeMeta(url) {
+      const endpoints = [
+        `https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(url)}`,
+        `https://noembed.com/embed?url=${encodeURIComponent(url)}`,
+      ];
+      for (const ep of endpoints) {
+        try {
+          const res = await fetch(ep);
+          if (!res.ok) continue;
+          const data = await res.json();
+          if (data && data.title) {
+            let title = cleanVideoTitle(data.title);
+            let artist = cleanChannelName(data.author_name);
+            const m = title.match(/^(.+?)\s+[-–—|]\s+(.+)$/);
+            if (m) {
+              artist = m[1].trim();
+              title = m[2].trim();
+            }
+            title = title.replace(/^["'“”‘’]+|["'“”‘’]+$/g, '').trim();
+            return { artist, title };
+          }
+        } catch (err) {}
+      }
+      return null;
+    }
+
     const PRACTICE_ID = 'practice-room';
     const makeBlankStaff = () =>
       ['e', 'B', 'G', 'D', 'A', 'E'].map((n) => `${n}|${'-'.repeat(48)}|`).join('\n');
@@ -909,6 +951,24 @@
       const timerRef = useRef(null);
       const [drumVolume, setDrumVolume] = useState(100);
       const [tabOverwrite, setTabOverwrite] = useState(true);
+      useEffect(() => {
+        songs
+          .filter((sg) => sg.title === 'New Song' && sg.artist === 'Unknown Artist' && extractYouTubeId(sg.sourceUrl))
+          .forEach((sg) => {
+            fetchYouTubeMeta(sg.sourceUrl).then((meta) => {
+              if (!meta) return;
+              setSongs((prev) =>
+                prev.map((x) =>
+                  x.id === sg.id && x.title === 'New Song' && x.artist === 'Unknown Artist'
+                    ? { ...x, artist: meta.artist || x.artist, title: meta.title || x.title }
+                    : x
+                )
+              );
+            });
+          });
+        // eslint-disable-next-line
+      }, []);
+
       const [droneOn, setDroneOn] = useState(false);
       const [droneNote, setDroneNote] = useState('A');
       const [droneOctave, setDroneOctave] = useState(2);
@@ -1035,6 +1095,32 @@
         };
 
         setSongs((prev) => [newSong, ...prev]);
+
+        // Look up the real song + artist from the YouTube link for anything not typed in by hand
+        const typedArtist = manualArtist.trim();
+        const typedTitle = manualTitle.trim();
+        const linkUrl = importUrl.trim();
+        if (extractYouTubeId(linkUrl) && (!typedArtist || !typedTitle)) {
+          fetchYouTubeMeta(linkUrl).then((meta) => {
+            if (!meta) {
+              showNotice("Couldn't read the song info from the link. Edit it in Song Details.");
+              return;
+            }
+            setSongs((prev) =>
+              prev.map((s) =>
+                s.id === newSong.id
+                  ? {
+                      ...s,
+                      artist: typedArtist ? s.artist : meta.artist || s.artist,
+                      title: typedTitle ? s.title : meta.title || s.title,
+                    }
+                  : s
+              )
+            );
+            showNotice(`Found: ${meta.artist ? meta.artist + ' - ' : ''}${meta.title}`);
+          });
+        }
+
         setImportUrl('');
         setManualArtist('');
         setManualTitle('');
@@ -1753,6 +1839,24 @@
           {/* Hidden-by-default Song Details Drawer Strip */}
           {showExpandedDetails && (
             <div className="w-full bg-black border-b border-[#2B2B35] px-4 sm:px-6 py-2.5 flex flex-wrap items-center gap-4 text-xs text-gray-300 shrink-0">
+              <label className="flex items-center gap-1.5">
+                <strong className="text-amber-400">Title:</strong>
+                <input
+                  type="text"
+                  value={expandedSong.title}
+                  onChange={(e) => updateSongFields(expandedSong.id, { title: e.target.value })}
+                  className="w-48 bg-black border border-gray-800 rounded px-2 py-0.5 text-xs text-gray-100 select-text focus:outline-none focus:border-amber-500"
+                />
+              </label>
+              <label className="flex items-center gap-1.5">
+                <strong className="text-amber-400">Artist:</strong>
+                <input
+                  type="text"
+                  value={expandedSong.artist}
+                  onChange={(e) => updateSongFields(expandedSong.id, { artist: e.target.value })}
+                  className="w-40 bg-black border border-gray-800 rounded px-2 py-0.5 text-xs text-gray-100 select-text focus:outline-none focus:border-amber-500"
+                />
+              </label>
               <span>
                 <strong className="text-amber-400">Stage:</strong>{' '}
                 {KANBAN_COLUMNS.find((c) => c.id === expandedSong.column)?.title || expandedSong.column}
